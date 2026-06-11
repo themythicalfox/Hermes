@@ -22,10 +22,10 @@ import importlib
 import bpy
 
 from . import utils, materials, body, wheels, interior, animation, \
-    scene_setup, main_miata
+    scene_setup, photoreal, main_miata
 
 _MODULES = (utils, materials, body, wheels, interior, animation,
-            scene_setup, main_miata)
+            scene_setup, photoreal, main_miata)
 
 # dev convenience: F8 / re-enable reloads edited submodules
 if "bpy" in locals():
@@ -57,6 +57,24 @@ class HERMES_OT_build(bpy.types.Operator):
             self.report({'ERROR'}, f"Build failed: {exc}")
             raise
         self.report({'INFO'}, "Hermes Miata built")
+        return {'FINISHED'}
+
+
+class HERMES_OT_photoreal(bpy.types.Operator):
+    """Apply the full photorealism pass: Cycles tuning, AgX, camera
+    physics, shadow-terminator fixes and the film-emulation compositor"""
+    bl_idname = "hermes.photoreal_polish"
+    bl_label = "Photoreal Polish"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    for_animation: bpy.props.BoolProperty(
+        name="Animation Profile", default=False,
+        description="Lower samples + motion blur + H.264 output (vs. "
+                    "2048-sample 4K EXR stills profile)")
+
+    def execute(self, context):
+        photoreal.apply(context.scene, for_animation=self.for_animation)
+        self.report({'INFO'}, "Photoreal settings applied")
         return {'FINISHED'}
 
 
@@ -93,12 +111,14 @@ class HERMES_PT_panel(bpy.types.Panel):
         col.label(text="HDRI (optional):")
         col.prop(context.scene, "hermes_hdri_path", text="")
         col.separator()
+        col.operator(HERMES_OT_photoreal.bl_idname, icon='CAMERA_DATA')
+        col.separator()
         col.operator(HERMES_OT_render_stills.bl_idname, icon='RENDER_STILL')
         col.operator(HERMES_OT_render_reel.bl_idname,
                      icon='RENDER_ANIMATION')
 
 
-_CLASSES = (HERMES_OT_build, HERMES_OT_render_stills,
+_CLASSES = (HERMES_OT_build, HERMES_OT_photoreal, HERMES_OT_render_stills,
             HERMES_OT_render_reel, HERMES_PT_panel)
 
 
