@@ -19,8 +19,12 @@ from . import utils, materials
 from .utils import FRONT_AXLE_Y
 
 FLOOR_Z   = 0.18         # cabin floor height
-DASH_Y    = 0.85         # dashboard face (forward of seats)
-SEAT_Y    = -0.45        # seat reference
+# Packaging (v2): the windscreen base sits at y≈0.51, so the dash lives
+# just behind it — the v1 value (0.85) buried the whole dash inside the
+# hood, which is why the cockpit looked empty. Seats moved forward so the
+# fuel tank fits behind them ahead of the rear axle (see drivetrain.py).
+DASH_Y    = 0.38         # dashboard centre (face toward cabin)
+SEAT_Y    = -0.25        # seat reference
 TUNNEL_W  = 0.24
 
 
@@ -59,7 +63,7 @@ def build_tub(coll, parent):
 
 def build_dashboard(coll, parent):
     """Anodized slab dash with carbon topper and recessed vents."""
-    dash = utils.make_box("Dashboard", size=(1.30, 0.30, 0.24),
+    dash = utils.make_box("Dashboard", size=(1.30, 0.26, 0.24),
                           location=(0, DASH_Y, 0.62), coll=coll)
     utils.add_bevel(dash, 0.02, 3)
     utils.assign_material(dash, materials.anodized_metal())

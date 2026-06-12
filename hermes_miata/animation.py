@@ -117,12 +117,11 @@ def animate_soft_top(soft_top):
                     (200, 1.0), (260, 0.0)):
         fold.value = val
         fold.keyframe_insert("value", frame=fr)
-    # ease the motion
-    if key.animation_data and key.animation_data.action:
-        for fc in key.animation_data.action.fcurves:
-            for kp in fc.keyframe_points:
-                kp.interpolation = 'SINE'
-                kp.easing = 'EASE_IN_OUT'
+    # ease the motion (action_fcurves handles 5.x slotted actions)
+    for fc in utils.action_fcurves(key.animation_data):
+        for kp in fc.keyframe_points:
+            kp.interpolation = 'SINE'
+            kp.easing = 'EASE_IN_OUT'
 
 
 def animate_heat_haze(haze_objs):
@@ -140,11 +139,9 @@ def animate_heat_haze(haze_objs):
                 loc.default_value = (0.0, 0.0, z)
                 loc.keyframe_insert("default_value", frame=fr)
             # linear scroll
-            tree = mat.node_tree
-            if tree.animation_data and tree.animation_data.action:
-                for fc in tree.animation_data.action.fcurves:
-                    for kp in fc.keyframe_points:
-                        kp.interpolation = 'LINEAR'
+            for fc in utils.action_fcurves(mat.node_tree.animation_data):
+                for kp in fc.keyframe_points:
+                    kp.interpolation = 'LINEAR'
 
 
 def animate_displays(displays):
@@ -160,11 +157,9 @@ def animate_displays(displays):
             for i, fr in enumerate(range(FRAME_START, FRAME_END, 45)):
                 sock.default_value = float(i * 13)   # jump to a new "page"
                 sock.keyframe_insert("default_value", frame=fr)
-            if mat.node_tree.animation_data and \
-                    mat.node_tree.animation_data.action:
-                for fc in mat.node_tree.animation_data.action.fcurves:
-                    for kp in fc.keyframe_points:
-                        kp.interpolation = 'CONSTANT'   # hard e-ink refresh
+            for fc in utils.action_fcurves(mat.node_tree.animation_data):
+                for kp in fc.keyframe_points:
+                    kp.interpolation = 'CONSTANT'       # hard e-ink refresh
 
 
 # ---------------------------------------------------------------------------
@@ -222,11 +217,11 @@ def build_camera_rig(scene, focus_target):
                            lens=lens, fstop=fstop)
         if name == "Cam_Interior":
             interior_aim = utils.new_empty("CamAimInterior",
-                                           (0, 0.6, 0.55), coll)
+                                           (0, 0.25, 0.60), coll)   # dash
             _track(cam, interior_aim)
         elif name == "Cam_Shifter":
             shifter_aim = utils.new_empty("CamAimShifter",
-                                          (0, 0.0, 0.45), coll)
+                                          (0, 0.20, 0.45), coll)    # gate
             _track(cam, shifter_aim)
         else:
             _track(cam, aim)

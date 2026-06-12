@@ -274,6 +274,83 @@ def loft_sections(name, sections, close_ends=True, coll=None):
 
 
 # ---------------------------------------------------------------------------
+# Modifier baking & panel splitting
+# ---------------------------------------------------------------------------
+
+def bake_modifiers(obj):
+    """Apply the whole modifier stack destructively via depsgraph evaluation
+    (works from scripts without bpy.ops or selection state)."""
+    deps = bpy.context.evaluated_depsgraph_get()
+    eval_obj = obj.evaluated_get(deps)
+    baked = bpy.data.meshes.new_from_object(eval_obj)
+    baked.name = obj.data.name
+    old = obj.data
+    obj.modifiers.clear()
+    obj.data = baked
+    if old.users == 0:
+        bpy.data.meshes.remove(old)
+    return obj
+
+
+def _shrink_boundary(bm, gap):
+    """Pull every boundary vert slightly toward the panel interior — this is
+    what turns split seams into visible real-world shutline gaps."""
+    moves = {}
+    for v in bm.verts:
+        if not v.is_boundary:
+            continue
+        nbrs = [e.other_vert(v) for e in v.link_edges]
+        interior = [n for n in nbrs if not n.is_boundary] or nbrs
+        if not interior:
+            continue
+        target = sum((n.co for n in interior), Vector()) / len(interior)
+        d = target - v.co
+        if d.length > 1e-9:
+            moves[v] = d.normalized() * min(gap, d.length * 0.5)
+    for v, m in moves.items():
+        v.co += m
+
+
+def split_into_panels(obj, panels, default_name, coll, gap=0.0035):
+    """Split `obj`'s mesh into separate panel objects.
+
+    `panels` is a list of (name, predicate) where predicate(face_centre)
+    decides membership; faces matching no predicate land in `default_name`.
+    Boundary verts of each panel are shrunk inward by `gap` to open real
+    shutlines. The source object is removed. Returns the new objects.
+    """
+    src_bm = bmesh.new()
+    src_bm.from_mesh(obj.data)
+    src_bm.faces.ensure_lookup_table()
+    assign = []
+    for f in src_bm.faces:
+        c = f.calc_center_median()
+        idx = next((i for i, (_n, pred) in enumerate(panels) if pred(c)), -1)
+        assign.append(idx)
+
+    new_objs = []
+    names = [n for n, _ in panels] + [default_name]
+    for i, name in enumerate(names):
+        target = i if i < len(panels) else -1
+        bm = src_bm.copy()
+        bm.faces.ensure_lookup_table()
+        doomed = [f for f, a in zip(bm.faces, assign) if a != target]
+        if len(doomed) == len(bm.faces):
+            bm.free()
+            continue
+        bmesh.ops.delete(bm, geom=doomed, context='FACES')
+        _shrink_boundary(bm, gap)
+        new_objs.append(obj_from_bmesh(name, bm, coll))
+    src_bm.free()
+
+    mesh = obj.data
+    bpy.data.objects.remove(obj, do_unlink=True)
+    if mesh.users == 0:
+        bpy.data.meshes.remove(mesh)
+    return new_objs
+
+
+# ---------------------------------------------------------------------------
 # Material socket helpers (version-proof Principled BSDF access)
 # ---------------------------------------------------------------------------
 
@@ -366,14 +443,44 @@ def assign_to_faces(obj, mat, predicate):
 # F-curve helpers
 # ---------------------------------------------------------------------------
 
+def action_fcurves(animdata):
+    """Return the f-curves of an AnimData's action across Blender versions.
+
+    Blender 5.x removed the legacy `Action.fcurves` collection in favour of
+    layered/slotted actions (action.layers[].strips[].channelbags[].fcurves).
+    This helper flattens whichever API exists into one list.
+    """
+    if animdata is None or animdata.action is None:
+        return []
+    act = animdata.action
+    legacy = getattr(act, "fcurves", None)
+    if legacy is not None:                       # <= 4.x
+        return list(legacy)
+    out = []
+    slot = getattr(animdata, "action_slot", None)
+    for layer in getattr(act, "layers", []):
+        for strip in getattr(layer, "strips", []):
+            bags = []
+            if slot is not None and hasattr(strip, "channelbag"):
+                try:
+                    bag = strip.channelbag(slot)
+                    if bag is not None:
+                        bags = [bag]
+                except (TypeError, AttributeError, RuntimeError):
+                    pass
+            if not bags:
+                bags = list(getattr(strip, "channelbags", []))
+            for bag in bags:
+                out.extend(bag.fcurves)
+    return out
+
+
 def add_noise_to_fcurves(obj, data_path, strength=0.002, scale=8.0,
                          indices=(0, 1, 2)):
     """Insert a base keyframe then layer a NOISE modifier on each f-curve —
     this is how the idle-vibration and exhaust-jiggle effects are driven."""
     obj.keyframe_insert(data_path=data_path, frame=1)
-    if not obj.animation_data or not obj.animation_data.action:
-        return
-    for fc in obj.animation_data.action.fcurves:
+    for fc in action_fcurves(obj.animation_data):
         if fc.data_path == data_path and fc.array_index in indices:
             mod = fc.modifiers.new('NOISE')
             mod.strength = strength
@@ -404,11 +511,10 @@ def keyframe(obj_or_id, data_path, frame_value_pairs, index=-1,
                                   index=index)
     # set interpolation on the curves we just made
     ad = obj_or_id.animation_data if hasattr(obj_or_id, "animation_data") else None
-    if ad and ad.action:
-        for fc in ad.action.fcurves:
-            if fc.data_path == data_path:
-                for kp in fc.keyframe_points:
-                    kp.interpolation = interpolation
+    for fc in action_fcurves(ad):
+        if fc.data_path == data_path:
+            for kp in fc.keyframe_points:
+                kp.interpolation = interpolation
 
 
 def exec_set(owner, path, value):

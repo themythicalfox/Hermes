@@ -21,11 +21,11 @@ bl_info = {
 import importlib
 import bpy
 
-from . import utils, materials, body, wheels, interior, animation, \
-    scene_setup, photoreal, main_miata
+from . import utils, materials, body, wheels, interior, drivetrain, \
+    animation, scene_setup, photoreal, main_miata
 
-_MODULES = (utils, materials, body, wheels, interior, animation,
-            scene_setup, photoreal, main_miata)
+_MODULES = (utils, materials, body, wheels, interior, drivetrain,
+            animation, scene_setup, photoreal, main_miata)
 
 # dev convenience: F8 / re-enable reloads edited submodules
 if "bpy" in locals():
