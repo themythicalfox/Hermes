@@ -29,11 +29,12 @@ if REPO_ROOT not in sys.path:
 
 import hermes_miata
 from hermes_miata import (utils, materials, body, wheels, interior,
-                          animation, scene_setup, main_miata)
+                          drivetrain, animation, scene_setup, photoreal,
+                          main_miata)
 
 # hot-reload so repeated runs pick up source edits
-for mod in (utils, materials, body, wheels, interior, animation,
-            scene_setup, main_miata, hermes_miata):
+for mod in (utils, materials, body, wheels, interior, drivetrain,
+            animation, scene_setup, photoreal, main_miata, hermes_miata):
     importlib.reload(mod)
 
 handles = main_miata.build(with_animation=True, with_scene=True, samples=512)

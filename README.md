@@ -36,7 +36,11 @@ hermes_miata/
 ├── utils.py         # collections, bmesh primitives, lofting, version-proof
 │                    #   Principled BSDF socket helpers, f-curve noise
 ├── materials.py     # all procedural PBR materials (paint, Alcantara, …)
-├── body.py          # lofted widebody shell, wing, diffuser, lights, soft top
+├── body.py          # lofted hull split into separate panels (hood, doors,
+│                    #   fenders, quarters, bumpers, trunk), wing, diffuser,
+│                    #   lights, soft top
+├── drivetrain.py    # engine, gearbox, driveshaft, diff, fuel tank,
+│                    #   suspension, undertray
 ├── wheels.py        # bronze multi-spokes, NITTO-lettered tyres, brakes
 ├── interior.py      # seats, dash, gated shifter, E-ink gauges, Sony panel
 ├── animation.py     # 300-frame reel: lights, blinkers, top, cameras, jiggle

@@ -20,7 +20,8 @@ configured for finals. Tweakable custom properties live on the root empty.
 
 import bpy
 
-from . import utils, body, wheels, interior, animation, scene_setup
+from . import utils, body, wheels, interior, drivetrain, animation, \
+    scene_setup
 
 
 def clear_previous():
@@ -59,6 +60,7 @@ def build(with_animation=True, with_scene=True, samples=512):
     handles.update(body_handles)
 
     handles["wheel_hubs"] = wheels.build(root)
+    handles.update(drivetrain.build(root))
 
     interior_handles = interior.build(root)
     handles["displays"] = interior_handles["displays"]
